@@ -1,4 +1,4 @@
---Task 1
+--Task 1. Output the number of movies in each category, sorted descending
 select 
   c.name, 
   count(film_id) as num_films
@@ -9,7 +9,7 @@ group by fc.category_id, c.name
 order by num_films desc;
 
 
---Task 2
+--Task 2. Output the 10 actors whose movies rented the most, sorted in descending order.
 with most_rented as (
     select  
         a.actor_id,
@@ -31,21 +31,17 @@ select
 from most_rented;
 
 
---Task 3
+--Task 3. Output the category of movies on which the most money was spent
 with cost_max as (
     select 
       c.name, 
       sum(p.amount) as cost
     from
        payment p  
-       join rental r on 
-         p.rental_id = r.rental_id 
-       join inventory i on 
-         r.inventory_id = i.inventory_id 
-       join film_category fc on 
-         i.film_id = fc.film_id 
-       join category c on 
-         fc.category_id = c.category_id
+       join rental r on p.rental_id = r.rental_id 
+       join inventory i on r.inventory_id = i.inventory_id 
+       join film_category fc on i.film_id = fc.film_id 
+       join category c on fc.category_id = c.category_id
     group by 
        c.category_id,
        c.name
@@ -56,7 +52,8 @@ select name
 from cost_max;
 
 
---Task 4
+--Task 4. Print the names of movies that are not in the inventory. 
+-- Write a query without using the IN operator.
 select
    f.title
 from 
@@ -68,7 +65,8 @@ where not exists
    );
 
 
---Task 5
+--Task 5. Output the top 3 actors who have appeared the most in movies in the “Children” category. 
+-- If several actors have the same number of movies, output all of them.
 with most_child as (
    select 
       a.first_name,
@@ -97,7 +95,8 @@ from most_child
 where rank_actors <=3;
 
 
---Task 6
+--Task 6. Output cities with the number of active and inactive customers (active - customer.active = 1). 
+-- Sort by the number of inactive customers in descending order.
 select
   c.city,
   SUM(case when c2.active = 1 then 1 else 0 end) as active_count,
@@ -109,7 +108,8 @@ group by c.city_id, c.city
 order by inactive_count desc;
 
 
---Task 7
+--Task 7. Output the category of movies that have the highest number of total rental hours in the city (customer.address_id in this city) 
+-- and that start with the letter “a”. Do the same for cities that have a “-” in them. 
 with rental_stats as (
     select 
         c.name as category_name,
