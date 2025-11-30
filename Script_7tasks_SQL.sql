@@ -10,37 +10,55 @@ order by num_films desc;
 
 
 --Task 2
-select  
-    a.actor_id,
-    a.first_name,
-    a.last_name,
-    COUNT(*) as rental_count
-from actor a
-   join film_actor fa on a.actor_id = fa.actor_id
-   join film f on fa.film_id = f.film_id
-   join inventory i on f.film_id = i.film_id
-   join rental r on i.inventory_id = r.inventory_id
-group by a.actor_id, a.first_name, a.last_name
-order by rental_count desc 
-limit 10;
+with most_rented as (
+    select  
+        a.actor_id,
+        a.first_name,
+        a.last_name,
+        COUNT(*) as rental_count
+    from actor a
+       join film_actor fa on a.actor_id = fa.actor_id
+       join film f on fa.film_id = f.film_id
+       join inventory i on f.film_id = i.film_id
+       join rental r on i.inventory_id = r.inventory_id
+    group by a.actor_id, a.first_name, a.last_name
+    order by rental_count desc 
+    limit 10
+    )
+select 
+    first_name,
+    last_name
+from most_rented;
 
 
 --Task 3
-select
-   c.name as films_category, 
-   sum(f.replacement_cost) as cost
-from
-   film f 
-   inner join film_category fc on f.film_id = fc.film_id
-   inner join category c on fc.category_id = c.category_id
-group by films_category
-order by cost desc
-limit 1;
+with cost_max as (
+    select 
+      c.name, 
+      sum(p.amount) as cost
+    from
+       payment p  
+       join rental r on 
+         p.rental_id = r.rental_id 
+       join inventory i on 
+         r.inventory_id = i.inventory_id 
+       join film_category fc on 
+         i.film_id = fc.film_id 
+       join category c on 
+         fc.category_id = c.category_id
+    group by 
+       c.category_id,
+       c.name
+    order by cost desc
+    limit 1
+    )
+select name
+from cost_max;
 
 
 --Task 4
 select
-   f.film_id, f.title
+   f.title
 from 
    film f
 where not exists
@@ -51,28 +69,36 @@ where not exists
 
 
 --Task 5
-select 
-   a.first_name,
-   a.last_name,
-   count(a.actor_id) as freq
+with most_child as (
+   select 
+      a.first_name,
+      a.last_name,
+      rank() over (partition by c.name order by count(*) desc) as rank_actors
 from
-   actor a
-   inner join film_actor fa on
-     a.actor_id = fa.actor_id
-   inner join film_category fc on
-     fa.film_id = fc.film_id
-   inner join category c on
-     fc.category_id = c.category_id
-where c.name = 'Children'
-group by
-    a.actor_id, a.first_name, a.last_name
-order by freq desc
-fetch first 3 rows with ties;
+      actor a
+      join film_actor fa
+        on a.actor_id = fa.actor_id
+      join film_category fc 
+        on fa.film_id = fc.film_id
+      join category c
+        on fc.category_id = c.category_id
+  where
+      c.name = 'Children'
+  group by
+      a.first_name,
+      a.last_name,
+      a.actor_id,
+      c.name
+   )
+select 
+   first_name,
+   last_name
+from most_child
+where rank_actors <=3;
 
 
 --Task 6
 select
-  c.city_id,
   c.city,
   SUM(case when c2.active = 1 then 1 else 0 end) as active_count,
   SUM(case when  c2.active = 0 then 1 else 0 end) as inactive_count
@@ -88,7 +114,7 @@ with rental_stats as (
     select 
         c.name as category_name,
         c3.city,
-        SUM(f.rental_duration) as total_rental_hours
+        SUM(f.rental_duration * 24) as total_rental_hours
     from category c
     join film_category fc on c.category_id = fc.category_id
     join film f on fc.film_id = f.film_id
@@ -112,8 +138,9 @@ max_dash as (
     order by total_rental_hours desc 
     limit 1
 )
-select 'Cities starting with A' as description, * 
+select * 
 from max_a
 union all 
-select 'Cities containing -' as description, * 
+select * 
 from max_dash;
+
