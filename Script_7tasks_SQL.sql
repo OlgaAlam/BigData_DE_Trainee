@@ -107,61 +107,59 @@ order by inactive_count desc;
 
 --Task 7. Output the category of movies that have the highest number of total rental hours in the city 
 -- (customer.address_id in this city). and that start with the letter “a”. Do the same for cities that have a “-” in them. 
-with city_A as (
-   select 
-     c.address_id
-    ,c2.city
-   from customer c
-      join address a on c.address_id = a.address_id
-      join city c2 on a.city_id = c2.city_id
-   where
-      city like 'A%'
-   order by c2.city_id
-   ),
-city_D as (
-   select 
-     c.address_id
-    ,c2.city
-     from customer c
-      join address a on c.address_id = a.address_id
-      join city c2 on a.city_id = c2.city_id
-   where
-      city like '%-%'
-   order by c2.city_id
-   ),
+with rent_h as (
+    select
+	    r.inventory_id,
+	    c2.city,
+	    SUM(extract(hour from r.return_date - r.rental_date)) over (partition by c2.city) as total_rent_hours
+    from
+	    rental r
+        join customer c on r.customer_id = c.customer_id
+        join address a on c.address_id = a.address_id
+        join city c2 on a.city_id = c2.city_id
+     where
+	    c2.city like 'A%'
+	    or c2.city like '%-%'
+	    and r.return_date is not null
+     group by
+	    c2.city,
+	    r.inventory_id,
+	    r.return_date,
+	    r.rental_date
+      ),
 sample_A as (
-    select 
-       c.name as category_name
-      ,city_A.city
-      ,SUM(f.rental_duration * 24) as total_rental_hours
-    from city_A
-    left join inventory i on city_A.address_id = i.inventory_id
-    join film f on i.film_id = f.film_id 
-    join film_category fc on f.film_id = fc.film_id 
-    join category c on fc.category_id = c.category_id
-    group by
-       c.name
-      ,city_A.city
+    select
+	    'City with A at the beginning' as title,
+	    rh.city,
+	    c.name as category_film,
+	    total_rent_hours as max_rent_hours
+    from 
+	    rent_h rh
+        join inventory i on rh.inventory_id = i.inventory_id
+        join film_category fc on i.film_id = fc.film_id
+        join category c on fc.category_id = c.category_id
+    where
+	    rh.city like 'A%'
     order by
-       total_rental_hours desc
-    limit 1
-    ),
+	    total_rent_hours desc
+     limit 1
+     ),
 sample_D as (
-    select 
-       c.name as category_name
-      ,city_D.city
-      ,SUM(f.rental_duration * 24) as total_rental_hours
-    from city_D
-    left join inventory i on city_D.address_id = i.inventory_id
-    join film f on i.film_id = f.film_id 
-    join film_category fc on f.film_id = fc.film_id
-    join category c on fc.category_id = c.category_id
-    group by
-       c.name
-      ,city_D.city 
+    select
+	    'City with dash' as title,
+	    rh.city,
+	    c.name as category_film,
+	    total_rent_hours as max_rent_hours
+    from
+	    rent_h rh
+        join inventory i on rh.inventory_id = i.inventory_id
+        join film_category fc on i.film_id = fc.film_id
+        join category c on fc.category_id = c.category_id
+    where
+	    rh.city like '%-%'
     order by
-       total_rental_hours desc
-   limit 1
+	    total_rent_hours desc
+    limit 1
     )
 select *
 from sample_A
